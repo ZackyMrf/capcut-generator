@@ -33,10 +33,12 @@ Commands:
   --download <url|id>       Scrape and download watermark-free template video
   --inspirations            Scrape AI prompts, templates & effect feeds
   --create-account          Create a disposable account via email OTP verification
-  --check <cookie>          Check full profile, role, storage & referral info with cookie
+  --check <cookie>          Check full profile, Pro start/exp, role & referral info
+  --claim <code|link>       Claim a referral code, invite link, or redemption voucher
   --help                    Show this help message
 
 Options:
+  --ref <code|link>         Attach referral code or invite link when creating account
   --output <path>           Custom output path for downloaded video (default: ./downloads/<id>.mp4)
   --save <file>             Save created account credentials to specified file
   --cookie <string>         Pass existing session cookies for authenticated requests
@@ -55,6 +57,7 @@ function parseArgs() {
     output: null,
     cookie: null,
     save: null,
+    ref: null,
     count: 1,
     loop: false,
     delay: 3,
@@ -78,9 +81,14 @@ function parseArgs() {
       options.action = 'inspirations';
     } else if (arg === '--create-account') {
       options.action = 'create-account';
+    } else if (arg === '--claim') {
+      options.action = 'claim';
+      options.target = args[++i];
     } else if (arg === '--check') {
       options.action = 'check';
       options.cookie = args[++i];
+    } else if (arg === '--ref' || arg === '--invite-code') {
+      options.ref = args[++i];
     } else if (arg === '--output' || arg === '-o') {
       options.output = args[++i];
     } else if (arg === '--save') {
@@ -126,7 +134,7 @@ function saveAccountToFile(filePath, accountData) {
     list.push(accountData);
     fs.writeFileSync(filePath, JSON.stringify(list, null, 2));
   } else {
-    const line = `${accountData.email}|${accountData.password}|${accountData.userId}|${accountData.role}|${accountData.referral?.referralLink || ''}|${accountData.cookieString}\n`;
+    const line = `${accountData.email}|${accountData.password}|${accountData.userId}|${accountData.role}|${accountData.pro?.level || 'free'}|${accountData.pro?.expireTimeFormatted || '-'}|${accountData.referral?.referralLink || ''}|${accountData.cookieString}\n`;
     fs.appendFileSync(filePath, line);
   }
 }
@@ -253,6 +261,31 @@ async function main() {
     return;
   }
 
+  if (opts.action === 'claim') {
+    if (!opts.target) {
+      console.error('Error: --claim requires a referral code, invite link or voucher');
+      process.exit(1);
+    }
+    if (!opts.cookie) {
+      console.error('Error: --claim requires --cookie <cookie_string>');
+      process.exit(1);
+    }
+    try {
+      const claimResult = await client.claimReferral(opts.target, opts.cookie, (msg) => logProgress(msg, opts.quiet));
+      const updatedProfile = await client.getFullAccountProfile(opts.cookie, (msg) => logProgress(msg, opts.quiet));
+      console.log(JSON.stringify({
+        status: 'success',
+        claim: claimResult,
+        profile: updatedProfile
+      }, null, 2));
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      console.log(JSON.stringify({ status: 'error', message: err.message }, null, 2));
+      process.exit(1);
+    }
+    return;
+  }
+
   if (opts.action === 'create-account') {
     const totalRuns = opts.loop ? Infinity : opts.count;
     const accounts = [];
@@ -263,7 +296,9 @@ async function main() {
       logProgress(`Starting account creation [${iteration}${opts.loop ? '' : '/' + totalRuns}]...`, opts.quiet);
 
       try {
-        const account = await client.registerDisposableAccount({}, (msg) => logProgress(msg, opts.quiet));
+        const account = await client.registerDisposableAccount({
+          referralInput: opts.ref
+        }, (msg) => logProgress(msg, opts.quiet));
         accounts.push(account);
 
         if (opts.save) {
@@ -276,7 +311,7 @@ async function main() {
           return;
         }
 
-        logProgress(`Account created: ${account.email} (Role: ${account.role}, ID: ${account.userId})`, opts.quiet);
+        logProgress(`Account created: ${account.email} (Role: ${account.role}, Pro: ${account.pro?.level}, ID: ${account.userId})`, opts.quiet);
       } catch (err) {
         logProgress(`Account creation error: ${err.message}`, opts.quiet);
       }
