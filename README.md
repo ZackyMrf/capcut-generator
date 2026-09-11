@@ -79,6 +79,7 @@ cp .env.example .env
 |---|---|
 | `--health`, `-h` | Runs connectivity health check against CapCut and mail service |
 | `--create-account` | Creates an account automatically using disposable email & OTP |
+| `--get-trial, --trial-7d` | Claims 7-day Pro trial directly from web (auto-creates account if no cookie) |
 | `--team <url\|code>` | Attaches team workspace invite link to join upon account creation |
 | `--join-team <url\|code>` | Joins a team workspace using an invitation link or code |
 | `--ref <code\|link>` | Attaches referral code or invite link during account creation |
@@ -197,21 +198,37 @@ Example JSON response:
 
 ---
 
-### 7. Scrape Template Details & Video Link
+### 7. Get 7-Day Pro Free Trial Directly from Web
+Automatically creates a disposable account and claims the 7-day Pro trial from web directly (fully automated, no manual steps):
+```bash
+node main.js --get-trial --save accounts.json
+```
+Or claim the 7-day trial on an existing account using its session cookie:
+```bash
+node main.js --get-trial --cookie "sessionid=YOUR_SESSION_ID; sessionid_ss=YOUR_SESSION_ID;"
+```
+Or create an account with referral, team workspace, and auto-claim 7-day trial:
+```bash
+node main.js --create-account --get-trial --ref "YOUR_REFERRAL_CODE" --team "YOUR_TEAM_URL"
+```
+
+---
+
+### 8. Scrape Template Details & Video Link
 ```bash
 node main.js --template 7299286607478181121
 ```
 
 ---
 
-### 8. Download Template Video
+### 9. Download Template Video
 ```bash
 node main.js --download 7299286607478181121 --output ./downloads/my_video.mp4
 ```
 
 ---
 
-### 9. Scrape AI Prompts & Video Inspirations
+### 10. Scrape AI Prompts & Video Inspirations
 ```bash
 node main.js --inspirations
 ```

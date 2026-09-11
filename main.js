@@ -33,12 +33,14 @@ Commands:
   --download <url|id>       Scrape and download watermark-free template video
   --inspirations            Scrape AI prompts, templates & effect feeds
   --create-account          Create a disposable account via email OTP verification
+  --get-trial, --trial-7d   Get 7-day Pro free trial directly from web (auto registers if no cookie)
   --check <cookie>          Check full profile, Pro start/exp, role & referral info
   --claim <code|link>       Claim a referral code, invite link, or redemption voucher
   --join-team <url|code>    Join a team workspace using an invitation link or code
   --help                    Show this help message
 
 Options:
+  --get-trial, --trial-7d   Auto-claim 7-day Pro free trial from web when creating account
   --ref <code|link>         Attach referral code or invite link when creating account
   --team <url|code>         Attach team workspace invite link to join upon account creation
   --output <path>           Custom output path for downloaded video (default: ./downloads/<id>.mp4)
@@ -61,6 +63,7 @@ function parseArgs() {
     save: null,
     ref: null,
     team: null,
+    getTrial: false,
     count: 1,
     loop: false,
     delay: 3,
@@ -84,6 +87,11 @@ function parseArgs() {
       options.action = 'inspirations';
     } else if (arg === '--create-account') {
       options.action = 'create-account';
+    } else if (arg === '--get-trial' || arg === '--trial-7d' || arg === '--trial' || arg === '--claim-trial') {
+      options.getTrial = true;
+      if (!options.action) {
+        options.action = 'get-trial';
+      }
     } else if (arg === '--claim') {
       options.action = 'claim';
       options.target = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
@@ -319,6 +327,64 @@ async function main() {
     return;
   }
 
+  if (opts.action === 'get-trial') {
+    if (opts.cookie) {
+      try {
+        const trialResult = await client.getTrial7d(opts.cookie, {
+          referralInput: opts.ref,
+          inviteCode: opts.ref,
+          region: 'SG'
+        }, (msg) => logProgress(msg, opts.quiet));
+        console.log(JSON.stringify({ status: 'success', trial: trialResult }, null, 2));
+      } catch (err) {
+        console.error(`Error: ${err.message}`);
+        console.log(JSON.stringify({ status: 'error', message: err.message }, null, 2));
+        process.exit(1);
+      }
+      return;
+    }
+
+    const totalRuns = opts.loop ? Infinity : opts.count;
+    const accounts = [];
+    let iteration = 0;
+
+    while (iteration < totalRuns) {
+      iteration++;
+      logProgress(`Starting automated account creation & 7-day Pro trial [${iteration}${opts.loop ? '' : '/' + totalRuns}]...`, opts.quiet);
+
+      try {
+        const account = await client.registerDisposableAccount({
+          referralInput: opts.ref,
+          team: opts.team,
+          getTrial: true
+        }, (msg) => logProgress(msg, opts.quiet));
+        accounts.push(account);
+
+        if (opts.save) {
+          saveAccountToFile(opts.save, account);
+          logProgress(`Saved account credentials to ${opts.save}`, opts.quiet);
+        }
+
+        if (totalRuns === 1) {
+          console.log(JSON.stringify({ status: 'success', account }, null, 2));
+          return;
+        }
+
+        logProgress(`Account created & trial claimed: ${account.email} (Pro: ${account.pro?.level}, Days: ${account.trial?.fissionVipDays || 0})`, opts.quiet);
+      } catch (err) {
+        logProgress(`Account creation error: ${err.message}`, opts.quiet);
+      }
+
+      if (iteration < totalRuns) {
+        logProgress(`Sleeping for ${opts.delay}s before next run...`, opts.quiet);
+        await new Promise((r) => setTimeout(r, opts.delay * 1000));
+      }
+    }
+
+    console.log(JSON.stringify({ status: 'success', total: accounts.length, accounts }, null, 2));
+    return;
+  }
+
   if (opts.action === 'create-account') {
     const totalRuns = opts.loop ? Infinity : opts.count;
     const accounts = [];
@@ -331,7 +397,8 @@ async function main() {
       try {
         const account = await client.registerDisposableAccount({
           referralInput: opts.ref,
-          team: opts.team
+          team: opts.team,
+          getTrial: Boolean(opts.getTrial)
         }, (msg) => logProgress(msg, opts.quiet));
         accounts.push(account);
 
