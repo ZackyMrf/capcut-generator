@@ -33,7 +33,7 @@ Commands:
   --download <url|id>       Scrape and download watermark-free template video
   --inspirations            Scrape AI prompts, templates & effect feeds
   --create-account          Create a disposable account via email OTP verification
-  --check <cookie>          Check user profile with session cookie
+  --check <cookie>          Check full profile, role, storage & referral info with cookie
   --help                    Show this help message
 
 Options:
@@ -126,7 +126,7 @@ function saveAccountToFile(filePath, accountData) {
     list.push(accountData);
     fs.writeFileSync(filePath, JSON.stringify(list, null, 2));
   } else {
-    const line = `${accountData.email}|${accountData.password}|${accountData.userId}|${accountData.cookieString}\n`;
+    const line = `${accountData.email}|${accountData.password}|${accountData.userId}|${accountData.role}|${accountData.referral?.referralLink || ''}|${accountData.cookieString}\n`;
     fs.appendFileSync(filePath, line);
   }
 }
@@ -243,8 +243,8 @@ async function main() {
       process.exit(1);
     }
     try {
-      const info = await client.getUserInfo(opts.cookie);
-      console.log(JSON.stringify({ status: 'success', user: info }, null, 2));
+      const profile = await client.getFullAccountProfile(opts.cookie, (msg) => logProgress(msg, opts.quiet));
+      console.log(JSON.stringify({ status: 'success', profile }, null, 2));
     } catch (err) {
       console.error(`Error: ${err.message}`);
       console.log(JSON.stringify({ status: 'error', message: err.message }, null, 2));
@@ -276,7 +276,7 @@ async function main() {
           return;
         }
 
-        logProgress(`Account created: ${account.email} (ID: ${account.userId})`, opts.quiet);
+        logProgress(`Account created: ${account.email} (Role: ${account.role}, ID: ${account.userId})`, opts.quiet);
       } catch (err) {
         logProgress(`Account creation error: ${err.message}`, opts.quiet);
       }

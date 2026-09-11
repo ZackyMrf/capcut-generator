@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT License" />
 </p>
 
-High-performance, zero-browser automation toolkit and CLI for **[capcut.com](https://www.capcut.com/)** featuring automated account generation, email OTP verification, template scraping, watermark-free MP4 video downloading, and AI inspiration feed extraction.
+High-performance, zero-browser automation toolkit and CLI for **[capcut.com](https://www.capcut.com/)** featuring automated account generation, email OTP verification, full account profile inspection (role, storage quota, workspace info), referral links generation, template scraping, watermark-free MP4 video downloading, and AI inspiration feed extraction.
 
 ---
 
@@ -21,18 +21,32 @@ High-performance, zero-browser automation toolkit and CLI for **[capcut.com](htt
    - Automatically polls inbox, retrieves 6-digit OTP code, and finalizes registration.
    - Captures and exports complete session cookies (`sessionid`, `sessionid_ss`, `passport_csrf_token`, `odin_tt`).
 
-2. **Template Scraping & Watermark-Free Direct Video Links**:
+2. **Full Account Profile & Role Extraction**:
+   - Retrieves complete account metadata upon registration and via `--check`:
+     - Account role (`owner`, `admin`, `member`)
+     - Cloud storage capacity & usage (e.g. 5.00 GB free quota)
+     - Workspace ID, Space ID, and member count
+     - Account region, birthday, and Pro status
+
+3. **Referral ID & Invitation Links Extraction**:
+   - Automatically extracts and formats:
+     - `referralId` / `userId`
+     - `referralLink` (CapCut Pro referral & fission share link)
+     - `spaceInviteLink` (CapCut team space collaboration invite link)
+     - `creatorProfileUrl` (Public creator discover page link)
+
+4. **Template Scraping & Watermark-Free Direct Video Links**:
    - Scrapes template metadata, author profiles, statistics, and related template recommendations directly from CapCut Modern.js SSR / router state.
    - Extracts direct high-definition MP4 URLs (`capcutvod.com` / `tiktokcdn.com`).
    - Supports template IDs, full URLs, and short share links.
 
-3. **Watermark-Free Video Downloader**:
+5. **Watermark-Free Video Downloader**:
    - Download template videos directly to disk via CLI with progress reporting.
 
-4. **AI Inspiration Feeds & Prompts Scraper**:
+6. **AI Inspiration Feeds & Prompts Scraper**:
    - Extracts trending AI video prompts, effect types, template IDs, cover images, and sample videos from CapCut workspace feeds.
 
-5. **Clean JSON Output to stdout**:
+7. **Clean JSON Output to stdout**:
    - All internal progress and diagnostics flow to `stderr`.
    - Structured JSON is printed directly to `stdout` for easy piping to `jq` or external automation pipelines.
 
@@ -59,7 +73,7 @@ cp .env.example .env
 | `--health`, `-h` | Runs connectivity health check against CapCut and mail service |
 | `--create-account` | Creates an account automatically using disposable email & OTP |
 | `--save <file>` | Appends generated account credentials to JSON or text file |
-| `--check <cookie>` | Checks account details using existing session cookie |
+| `--check <cookie>` | Checks full profile, role, storage quota & referral info with cookie |
 | `--template <url\|id>` | Scrapes metadata, video link, author info, and related templates |
 | `--download <url\|id>` | Scrapes and downloads high-quality MP4 video to disk |
 | `--output <path>` | Custom destination path for downloaded media |
@@ -89,7 +103,7 @@ node main.js --health
 
 ---
 
-### 2. Auto Create Account with Email OTP Verification
+### 2. Auto Create Account with Role & Referral ID
 Create an account on-the-fly:
 ```bash
 node main.js --create-account
@@ -102,10 +116,6 @@ Batch creation:
 ```bash
 node main.js --create-account --count 5 --delay 3 --save accounts.json
 ```
-Continuous loop:
-```bash
-node main.js --create-account --loop --delay 5 --save accounts.json
-```
 
 Example JSON response:
 ```json
@@ -114,23 +124,44 @@ Example JSON response:
   "account": {
     "email": "user123456@glx.web.id",
     "password": "Cc9!examplePass",
-    "userId": "7684160646846891028",
-    "screenName": "user7948009241781",
+    "userId": "7684163280726574101",
+    "screenName": "user3683794077417",
     "avatarUrl": "https://sf16-passport-sg.ibytedtos.com/obj/user-avatar-alisg/example.png",
     "secUserId": "MS4wLjABAAAA...",
-    "cookieString": "sessionid=...; sessionid_ss=...; passport_csrf_token=...;",
-    "userInfo": {
-      "user_id_str": "7684160646846891028",
-      "email": "u***6@glx.web.id",
-      "screen_name": "user7948009241781"
-    }
+    "role": "owner",
+    "isPro": false,
+    "storage": {
+      "quotaBytes": 5368709120,
+      "usageBytes": 0,
+      "quotaFormatted": "5.00 GB",
+      "usageFormatted": "0.00 GB"
+    },
+    "workspace": {
+      "workspaceId": "7684163353941540885",
+      "spaceId": "7684162534710461460",
+      "name": "user3683794077417’s space",
+      "role": "owner",
+      "memberCount": 1,
+      "memberLimit": 1
+    },
+    "referral": {
+      "referralId": "7684163280726574101",
+      "userId": "7684163280726574101",
+      "secUserId": "MS4wLjABAAAA...",
+      "workspaceId": "7684163353941540885",
+      "spaceId": "7684162534710461460",
+      "referralLink": "https://www.capcut.com/capcut_pc_web/fission_receive?enter_from=share&user_id=7684163280726574101",
+      "spaceInviteLink": "https://www.capcut.com/join-space?space_id=7684162534710461460&workspace_id=7684163353941540885",
+      "creatorProfileUrl": "https://www.capcut.com/discover/creator/MS4wLjABAAAA..."
+    },
+    "cookieString": "sessionid=...; sessionid_ss=...; passport_csrf_token=...;"
   }
 }
 ```
 
 ---
 
-### 3. Check Session Cookie & Account Info
+### 3. Check Account Info, Role & Referral Details
 ```bash
 node main.js --check "sessionid=YOUR_SESSION_ID; sessionid_ss=YOUR_SESSION_ID;"
 ```
@@ -141,12 +172,6 @@ node main.js --check "sessionid=YOUR_SESSION_ID; sessionid_ss=YOUR_SESSION_ID;"
 ```bash
 node main.js --template 7299286607478181121
 ```
-Or with full URL:
-```bash
-node main.js --template "https://www.capcut.com/template-detail/7299286607478181121"
-```
-
-Output includes direct MP4 URL, duration, dimensions, view/like/usage statistics, author metadata, and 10 related templates.
 
 ---
 
@@ -168,4 +193,4 @@ node main.js --inspirations
 
 1. **Zero-Browser Architecture**: Pure HTTP requests using native Node.js `fetch` without Puppeteer or Playwright.
 2. **ByteDance Passport Protocol**: Utilizes XOR encryption (`0x05`) for credential encoding compatible with ByteDance Passport endpoints.
-3. **Modern.js SSR State Parsing**: Extracts template parameters, recommendations, and workspace feeds directly from embedded Modern.js router and SSR data structures.
+3. **Workspace & Modern.js SSR State Parsing**: Extracts role, storage quota, referral links, and workspace IDs directly from embedded Gateway session states (`__GTW_USER_INFO__` & `__GTW_USER_WORKSPACES__`).
