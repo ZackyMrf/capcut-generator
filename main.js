@@ -73,28 +73,28 @@ function parseArgs() {
       options.action = 'health';
     } else if (arg === '--template') {
       options.action = 'template';
-      options.target = args[++i];
+      options.target = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
     } else if (arg === '--download') {
       options.action = 'download';
-      options.target = args[++i];
+      options.target = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
     } else if (arg === '--inspirations') {
       options.action = 'inspirations';
     } else if (arg === '--create-account') {
       options.action = 'create-account';
     } else if (arg === '--claim') {
       options.action = 'claim';
-      options.target = args[++i];
+      options.target = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
     } else if (arg === '--check') {
       options.action = 'check';
-      options.cookie = args[++i];
+      options.cookie = (args[++i] || '').trim();
     } else if (arg === '--ref' || arg === '--invite-code') {
-      options.ref = args[++i];
+      options.ref = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
     } else if (arg === '--output' || arg === '-o') {
-      options.output = args[++i];
+      options.output = (args[++i] || '').trim();
     } else if (arg === '--save') {
-      options.save = args[++i];
+      options.save = (args[++i] || '').trim();
     } else if (arg === '--cookie') {
-      options.cookie = args[++i];
+      options.cookie = (args[++i] || '').trim();
     } else if (arg === '--count') {
       options.count = parseInt(args[++i], 10) || 1;
     } else if (arg === '--loop') {
