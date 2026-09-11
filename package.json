@@ -1,0 +1,23 @@
+{
+  "name": "capcut-toolkit",
+  "version": "1.0.0",
+  "description": "Automated account generator, email OTP verification & media scraper CLI for CapCut built with Node.js",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "loop": "node main.js --loop --delay 3",
+    "batch": "node main.js --count 10 --delay 3"
+  },
+  "keywords": [
+    "capcut",
+    "scraper",
+    "account-generator",
+    "automation",
+    "nodejs"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

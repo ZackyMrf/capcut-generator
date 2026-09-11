@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.log
+accounts.json
+accounts.txt
+downloads/
