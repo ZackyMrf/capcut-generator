@@ -1,7 +1,7 @@
 {
-  "name": "capcut-toolkit",
+  "name": "capcut-generator",
   "version": "1.0.0",
-  "description": "Automated account generator, email OTP verification & media scraper CLI for CapCut built with Node.js",
+  "description": "Automated account generator, email OTP verification, referral linking & media scraper CLI for CapCut built with Node.js",
   "type": "module",
   "main": "main.js",
   "scripts": {
@@ -9,15 +9,26 @@
     "loop": "node main.js --loop --delay 3",
     "batch": "node main.js --count 10 --delay 3"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jakisoft/capcut-generator.git"
+  },
   "keywords": [
     "capcut",
     "scraper",
     "account-generator",
     "automation",
+    "team-workspace",
+    "referral",
     "nodejs"
   ],
   "engines": {
     "node": ">=18.0.0"
   },
-  "license": "MIT"
+  "author": "jakisoft",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jakisoft/capcut-generator/issues"
+  },
+  "homepage": "https://github.com/jakisoft/capcut-generator#readme"
 }

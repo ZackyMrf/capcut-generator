@@ -35,10 +35,12 @@ Commands:
   --create-account          Create a disposable account via email OTP verification
   --check <cookie>          Check full profile, Pro start/exp, role & referral info
   --claim <code|link>       Claim a referral code, invite link, or redemption voucher
+  --join-team <url|code>    Join a team workspace using an invitation link or code
   --help                    Show this help message
 
 Options:
   --ref <code|link>         Attach referral code or invite link when creating account
+  --team <url|code>         Attach team workspace invite link to join upon account creation
   --output <path>           Custom output path for downloaded video (default: ./downloads/<id>.mp4)
   --save <file>             Save created account credentials to specified file
   --cookie <string>         Pass existing session cookies for authenticated requests
@@ -58,6 +60,7 @@ function parseArgs() {
     cookie: null,
     save: null,
     ref: null,
+    team: null,
     count: 1,
     loop: false,
     delay: 3,
@@ -84,11 +87,16 @@ function parseArgs() {
     } else if (arg === '--claim') {
       options.action = 'claim';
       options.target = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
+    } else if (arg === '--join-team' || arg === '--join-space') {
+      options.action = 'join-team';
+      options.target = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
     } else if (arg === '--check') {
       options.action = 'check';
       options.cookie = (args[++i] || '').trim();
     } else if (arg === '--ref' || arg === '--invite-code') {
       options.ref = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
+    } else if (arg === '--team' || arg === '--space') {
+      options.team = (args[++i] || '').replace(/[\r\n\t\s]+/g, '').trim();
     } else if (arg === '--output' || arg === '-o') {
       options.output = (args[++i] || '').trim();
     } else if (arg === '--save') {
@@ -286,6 +294,31 @@ async function main() {
     return;
   }
 
+  if (opts.action === 'join-team') {
+    if (!opts.target) {
+      console.error('Error: --join-team requires a workspace invitation link or code');
+      process.exit(1);
+    }
+    if (!opts.cookie) {
+      console.error('Error: --join-team requires --cookie <cookie_string>');
+      process.exit(1);
+    }
+    try {
+      const joinResult = await client.joinWorkspace(opts.target, opts.cookie, (msg) => logProgress(msg, opts.quiet));
+      const updatedProfile = await client.getFullAccountProfile(opts.cookie, (msg) => logProgress(msg, opts.quiet));
+      console.log(JSON.stringify({
+        status: 'success',
+        join: joinResult,
+        profile: updatedProfile
+      }, null, 2));
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      console.log(JSON.stringify({ status: 'error', message: err.message }, null, 2));
+      process.exit(1);
+    }
+    return;
+  }
+
   if (opts.action === 'create-account') {
     const totalRuns = opts.loop ? Infinity : opts.count;
     const accounts = [];
@@ -297,7 +330,8 @@ async function main() {
 
       try {
         const account = await client.registerDisposableAccount({
-          referralInput: opts.ref
+          referralInput: opts.ref,
+          team: opts.team
         }, (msg) => logProgress(msg, opts.quiet));
         accounts.push(account);
 
