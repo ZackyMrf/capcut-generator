@@ -75,16 +75,22 @@ cp .env.example .env
 
 ## 📋 Available Commands & Options
 
-| Command | Description |
+| Command / Option | Description |
 |---|---|
 | `--health`, `-h` | Runs connectivity health check against CapCut and mail service |
 | `--create-account` | Creates an account automatically using disposable email & OTP |
+| `--google, --google-login` | Registers or logs in via Google or GSuite (auto-claims 7-day Pro trial) |
+| `--google-url` | Generates official CapCut Google OAuth authorization URL |
+| `--google-token <token>` | Passes Google ID token, One-Tap credential or access token |
+| `--google-code <code>` | Passes Google OAuth authorization code |
+| `--email <email>` | Registers with custom Google, GSuite or personal email address |
+| `--checkout [code]` | Generates 100% free ($0, no card required) 7-day Pro trial & checkout links |
 | `--get-trial, --trial-7d` | Claims 7-day Pro trial directly from web (auto-creates account if no cookie) |
 | `--team <url\|code>` | Attaches team workspace invite link to join upon account creation |
 | `--join-team <url\|code>` | Joins a team workspace using an invitation link or code |
 | `--ref <code\|link>` | Attaches referral code or invite link during account creation |
 | `--claim <code\|link>` | Claims referral code, invite link, or voucher code for existing cookie |
-| `--check <cookie>` | Checks full profile, Pro start/exp, role, storage & referral info |
+| `--check <cookie>` | Checks full profile, Pro start/exp, role, storage, referral & checkout info |
 | `--save <file>` | Appends generated account credentials to JSON or text file |
 | `--template <url\|id>` | Scrapes metadata, video link, author info, and related templates |
 | `--download <url\|id>` | Scrapes and downloads high-quality MP4 video to disk |
@@ -231,6 +237,60 @@ node main.js --download 7299286607478181121 --output ./downloads/my_video.mp4
 ### 10. Scrape AI Prompts & Video Inspirations
 ```bash
 node main.js --inspirations
+```
+
+---
+
+### 11. Register / Login with Google or GSuite (Auto 7-Day Pro Trial)
+Authenticate and register using a Google ID token, One-Tap credential, or authorization code:
+```bash
+node main.js --google --google-token "YOUR_GOOGLE_ID_TOKEN" --save accounts.json
+```
+With referral code and team workspace auto-join:
+```bash
+node main.js --google --google-token "YOUR_GOOGLE_ID_TOKEN" --ref "REFERRAL_CODE" --team "TEAM_URL"
+```
+Or with Google OAuth authorization code:
+```bash
+node main.js --google --google-code "4/0AVMBs..."
+```
+
+---
+
+### 12. Generate Google OAuth 2.0 Authorization Link
+Get the official CapCut Google OAuth authorization URL to sign in with any Google or GSuite account:
+```bash
+node main.js --google-url
+```
+
+---
+
+### 13. Register with Custom Google / GSuite Email & Verification OTP
+Register using your own Gmail, GSuite, or Google Workspace email with verification OTP:
+```bash
+node main.js --create-account --email "myuser@gsuite-domain.com" --otp "123456"
+```
+Or interactively in terminal (prompts for the code after sending):
+```bash
+node main.js --create-account --email "myuser@gsuite-domain.com"
+```
+
+---
+
+### 14. Generate 100% Free 7-Day Pro Trial & Checkout Links
+Every account created (`--create-account`, `--google`) returns the genuine 100% Free ($0, no credit/debit card required) 7-day Pro trial link (`freeTrial7dUrl` / `trial7dUrl`) alongside direct web subscription links.
+
+You can generate direct 7-day Pro trial and checkout links anytime:
+```bash
+node main.js --checkout
+```
+With referral/promo code and custom language:
+```bash
+node main.js --checkout "7684160646846891028" --lng id-id
+```
+With existing account session cookie:
+```bash
+node main.js --checkout --cookie "sessionid=YOUR_SESSION_ID; sessionid_ss=YOUR_SESSION_ID;"
 ```
 
 ---

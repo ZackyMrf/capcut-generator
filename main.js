@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { CapCut } from './lib/capcut.js';
 import { createTempEmail, fetchEmails } from './lib/mail.js';
@@ -33,6 +34,9 @@ Commands:
   --download <url|id>       Scrape and download watermark-free template video
   --inspirations            Scrape AI prompts, templates & effect feeds
   --create-account          Create a disposable account via email OTP verification
+  --google, --google-login  Register or login via Google / GSuite (auto-claims 7-day Pro trial)
+  --google-url              Generate Google OAuth authorization URL for Google / GSuite
+  --checkout [code]         Generate 100% free ($0, no card) 7-day Pro trial & checkout links
   --get-trial, --trial-7d   Get 7-day Pro free trial directly from web (auto registers if no cookie)
   --check <cookie>          Check full profile, Pro start/exp, role & referral info
   --claim <code|link>       Claim a referral code, invite link, or redemption voucher
@@ -40,7 +44,12 @@ Commands:
   --help                    Show this help message
 
 Options:
+  --google-token <token>    Google ID token, One-Tap credential or access token
+  --google-code <code>      Google OAuth authorization code
+  --email <email>           Custom Google / GSuite or personal email address for registration
+  --otp, --code <code>      Verification OTP code for custom email
   --get-trial, --trial-7d   Auto-claim 7-day Pro free trial from web when creating account
+  --lng <lang>              Language for checkout links (default: en)
   --ref <code|link>         Attach referral code or invite link when creating account
   --team <url|code>         Attach team workspace invite link to join upon account creation
   --output <path>           Custom output path for downloaded video (default: ./downloads/<id>.mp4)
@@ -64,6 +73,11 @@ function parseArgs() {
     ref: null,
     team: null,
     getTrial: false,
+    googleToken: null,
+    googleCode: null,
+    email: null,
+    otp: null,
+    language: 'en',
     count: 1,
     loop: false,
     delay: 3,
@@ -87,6 +101,29 @@ function parseArgs() {
       options.action = 'inspirations';
     } else if (arg === '--create-account') {
       options.action = 'create-account';
+    } else if (arg === '--google' || arg === '--google-login' || arg === '--login-google') {
+      options.action = 'google';
+    } else if (arg === '--google-url' || arg === '--google-auth-url') {
+      options.action = 'google-url';
+    } else if (arg === '--google-token') {
+      options.googleToken = (args[++i] || '').trim();
+    } else if (arg === '--google-code') {
+      options.googleCode = (args[++i] || '').trim();
+    } else if (arg === '--email') {
+      options.email = (args[++i] || '').trim();
+    } else if (arg === '--otp') {
+      options.otp = (args[++i] || '').trim();
+    } else if (arg === '--code') {
+      const nextVal = (args[++i] || '').trim();
+      options.otp = nextVal;
+      options.googleCode = nextVal;
+    } else if (arg === '--checkout' || arg === '--checkout-link') {
+      options.action = 'checkout';
+      if (args[i + 1] && !args[i + 1].startsWith('-')) {
+        options.target = (args[++i] || '').trim();
+      }
+    } else if (arg === '--lng' || arg === '--lang' || arg === '--language') {
+      options.language = (args[++i] || '').trim();
     } else if (arg === '--get-trial' || arg === '--trial-7d' || arg === '--trial' || arg === '--claim-trial') {
       options.getTrial = true;
       if (!options.action) {
@@ -131,6 +168,16 @@ function logProgress(msg, quiet = false) {
   }
 }
 
+async function askInput(promptText) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const answer = await rl.question(promptText);
+    return answer.trim();
+  } finally {
+    rl.close();
+  }
+}
+
 function saveAccountToFile(filePath, accountData) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -150,7 +197,7 @@ function saveAccountToFile(filePath, accountData) {
     list.push(accountData);
     fs.writeFileSync(filePath, JSON.stringify(list, null, 2));
   } else {
-    const line = `${accountData.email}|${accountData.password}|${accountData.userId}|${accountData.role}|${accountData.pro?.level || 'free'}|${accountData.pro?.expireTimeFormatted || '-'}|${accountData.referral?.referralLink || ''}|${accountData.cookieString}\n`;
+    const line = `${accountData.email}|${accountData.password || '-'}|${accountData.userId}|${accountData.role}|${accountData.pro?.level || 'free'}|${accountData.pro?.expireTimeFormatted || '-'}|${accountData.referral?.referralLink || ''}|${accountData.cookieString}\n`;
     fs.appendFileSync(filePath, line);
   }
 }
@@ -327,6 +374,88 @@ async function main() {
     return;
   }
 
+  if (opts.action === 'google-url') {
+    const authData = client.getGoogleAuthUrl({ language: opts.language });
+    console.log(JSON.stringify({ status: 'success', googleAuth: authData }, null, 2));
+    return;
+  }
+
+  if (opts.action === 'checkout') {
+    let profile = null;
+    if (opts.cookie) {
+      try {
+        profile = await client.getFullAccountProfile(opts.cookie, (msg) => logProgress(msg, opts.quiet));
+      } catch {}
+    }
+    const checkoutUrls = client.buildCheckoutUrls({
+      userId: profile?.userId,
+      workspaceId: profile?.workspace?.workspaceId,
+      code: opts.target || opts.ref,
+      language: opts.language || 'en'
+    });
+    console.log(JSON.stringify({
+      status: 'success',
+      checkout: checkoutUrls,
+      profile: profile || undefined
+    }, null, 2));
+    return;
+  }
+
+  if (opts.action === 'google' || (opts.action === 'create-account' && (opts.googleToken || opts.googleCode))) {
+    let token = opts.googleToken;
+    let code = opts.googleCode;
+
+    if (!token && !code) {
+      if (process.stdin.isTTY) {
+        const authData = client.getGoogleAuthUrl({ language: opts.language });
+        logProgress(`Open Google OAuth URL in your browser to authorize:\n${authData.authUrl}`, opts.quiet);
+        const inputStr = await askInput('Paste your Google ID token, credential or auth code: ');
+        if (!inputStr) {
+          console.error('Error: Google token or code is required');
+          process.exit(1);
+        }
+        if (inputStr.startsWith('4/') || inputStr.length < 150) {
+          code = inputStr;
+        } else {
+          token = inputStr;
+        }
+      } else {
+        const authData = client.getGoogleAuthUrl({ language: opts.language });
+        console.error('Error: Google authentication requires --google-token <token> or --google-code <code>');
+        console.log(JSON.stringify({
+          status: 'error',
+          message: 'Missing Google token or authorization code',
+          googleAuth: authData
+        }, null, 2));
+        process.exit(1);
+      }
+    }
+
+    try {
+      logProgress('Starting Google / GSuite account registration & 7-day Pro trial activation...', opts.quiet);
+      const account = await client.registerOrLoginWithGoogle({
+        token,
+        code,
+        referralInput: opts.ref,
+        team: opts.team,
+        getTrial: opts.getTrial !== false,
+        language: opts.language
+      }, {}, (msg) => logProgress(msg, opts.quiet));
+
+      if (opts.save) {
+        saveAccountToFile(opts.save, account);
+        logProgress(`Saved account credentials to ${opts.save}`, opts.quiet);
+      }
+
+      console.log(JSON.stringify({ status: 'success', account }, null, 2));
+    } catch (err) {
+      console.error(`Error: ${err.message}`);
+      console.log(JSON.stringify({ status: 'error', message: err.message }, null, 2));
+      process.exit(1);
+    }
+    return;
+  }
+
   if (opts.action === 'get-trial') {
     if (opts.cookie) {
       try {
@@ -353,10 +482,22 @@ async function main() {
       logProgress(`Starting automated account creation & 7-day Pro trial [${iteration}${opts.loop ? '' : '/' + totalRuns}]...`, opts.quiet);
 
       try {
+        const onOtpRequest = opts.email ? async (emailAddr) => {
+          if (opts.otp) return opts.otp;
+          if (process.stdin.isTTY) {
+            return await askInput(`Enter 6-digit verification code sent to ${emailAddr}: `);
+          }
+          throw new Error('Custom email requires verification code via --otp <code>');
+        } : null;
+
         const account = await client.registerDisposableAccount({
+          email: opts.email,
+          code: opts.otp,
+          onOtpRequest,
           referralInput: opts.ref,
           team: opts.team,
-          getTrial: true
+          getTrial: true,
+          language: opts.language
         }, (msg) => logProgress(msg, opts.quiet));
         accounts.push(account);
 
@@ -395,10 +536,22 @@ async function main() {
       logProgress(`Starting account creation [${iteration}${opts.loop ? '' : '/' + totalRuns}]...`, opts.quiet);
 
       try {
+        const onOtpRequest = opts.email ? async (emailAddr) => {
+          if (opts.otp) return opts.otp;
+          if (process.stdin.isTTY) {
+            return await askInput(`Enter 6-digit verification code sent to ${emailAddr}: `);
+          }
+          throw new Error('Custom email requires verification code via --otp <code>');
+        } : null;
+
         const account = await client.registerDisposableAccount({
+          email: opts.email,
+          code: opts.otp,
+          onOtpRequest,
           referralInput: opts.ref,
           team: opts.team,
-          getTrial: Boolean(opts.getTrial)
+          getTrial: Boolean(opts.getTrial),
+          language: opts.language
         }, (msg) => logProgress(msg, opts.quiet));
         accounts.push(account);
 
